@@ -1,21 +1,24 @@
 import rclpy
+from rclpy.node import Node
 from geometry_msgs.msg import Twist
 import yaml
 import os
 from ament_index_python.packages import get_package_share_directory
 import tf_transformations
 import tf2_ros
+import py_trees
 
-class SetAngle:
-    def __init__(self, index=0):
+class SetAngleNode(py_trees.behaviour.Behaviour):
+    def __init__(self, name="SetAngle", index=0):
+        super().__init__(name)
         self.index = index
-        self.node = rclpy.create_node("set_angle_node")
+        self.node = rclpy.create_node("set_angle_node_bt")
         self.publisher = self.node.create_publisher(Twist, '/cmd_vel', 10)
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self.node)
-        self.threshold = 0.03  # 역치
+        self.threshold = 0.03  # rad 기준 회전 오차 허용치
 
-    def run(self):
+    def update(self):
         try:
             # ✅ YAML 로드
             filename = f"waypoint{self.index + 1}.yaml"
@@ -39,15 +42,11 @@ class SetAngle:
                 twist.angular.z = 0.4 * error
                 self.publisher.publish(twist)
                 self.node.get_logger().info(f"[SetAngle] 회전 중: error={error:.3f}")
+                return py_trees.common.Status.RUNNING
             else:
                 self.node.get_logger().info("[SetAngle] 각도 정렬 완료")
+                return py_trees.common.Status.SUCCESS
 
         except Exception as e:
             self.node.get_logger().error(f"[SetAngle] 실패: {e}")
-
-# ✅ 단독 실행 진짜 main()
-def main():
-    rclpy.init()
-    sa = SetAngle(index=0)  # 여기서 원하는 인덱스 설정
-    sa.run()
-    rclpy.shutdown()
+            return py_trees.common.Status.FAILURE
