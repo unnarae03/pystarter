@@ -24,6 +24,7 @@ setup(
         'console_scripts': [
             'bt_main = pystarter.bt_main:main',
             'move_to_goal = pystarter.move_to_goal:main',  # MoveToGoal 실행 명령어
+            'set_angle_node = pystarter.nodes.set_angle_node:main',
         ],
     },
 )
