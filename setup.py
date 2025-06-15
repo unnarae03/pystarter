@@ -30,7 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'bt_main = pystarter.bt_main:main',
-            'move_to_goal = pystarter.move_to_goal:main',  # 선택적: 단독 실행 필요할 때만 유지
+            'move_to_goal = pystarter.move_to_goal_node:main',  # 선택적: 단독 실행 필요할 때만 유지
             'set_angle_node = pystarter.nodes.set_angle_node:main',
         ],
     },
