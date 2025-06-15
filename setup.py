@@ -3,6 +3,7 @@ from glob import glob
 import os
 
 package_name = 'pystarter'
+here = os.path.dirname(__file__)  # setup.py의 절대 경로
 
 setup(
     name=package_name,
@@ -12,10 +13,12 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         (os.path.join('share', package_name), ['package.xml']),
-        # 🔧 추가됨: config 폴더 안의 YAML 파일들 설치
-        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
-        # 🔧 추가됨: 이미지 리소스 설치
-        (os.path.join('share', package_name, 'logs/images/reference'), glob('logs/images/reference/*.jpg')),
+        # ✅ config/*.yaml 포함 (실시간 glob, 경로 정확히 탐색)
+        (os.path.join('share', package_name, 'config'),
+            glob(os.path.join(here, 'config', '*.yaml'))),
+        # ✅ reference/*.jpg 포함 (실시간 glob, 경로 정확히 탐색)
+        (os.path.join('share', package_name, 'logs/images/reference'),
+            glob(os.path.join(here, 'logs/images/reference', '*.jpg'))),
     ],
     install_requires=[
         'setuptools',
@@ -30,7 +33,7 @@ setup(
     entry_points={
         'console_scripts': [
             'bt_main = pystarter.bt_main:main',
-            'move_to_goal = pystarter.move_to_goal_node:main',  # 선택적: 단독 실행 필요할 때만 유지
+            'move_to_goal = pystarter.move_to_goal_node:main',
             'set_angle_node = pystarter.nodes.set_angle_node:main',
         ],
     },
