@@ -3,14 +3,14 @@ from rclpy.executors import MultiThreadedExecutor
 import py_trees
 
 from pystarter.nodes.move_to_goal_node import MoveToGoal
-from pystarter.nodes.set_angle_node import SetAngle
+from pystarter.nodes.set_angle_node import SetAngleNode
 
 
 def create_tree():
     root = py_trees.composites.Sequence(name="MainSequence", memory=False)
 
     move_to_goal = MoveToGoal()
-    set_angle = SetAngle(index=0)  # waypoint1.yaml 기준
+    set_angle = SetAngleNode(index=0)# waypoint1.yaml 기준
 
     root.add_children([move_to_goal, set_angle])
     return root, move_to_goal, set_angle
