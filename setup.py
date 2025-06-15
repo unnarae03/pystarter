@@ -3,7 +3,7 @@ from glob import glob
 import os
 
 package_name = 'pystarter'
-here = os.path.dirname(__file__)  # setup.py의 절대 경로
+here = os.path.dirname(__file__)  # setup.py 위치 = ~/ros2_ws/src/pystarter
 
 setup(
     name=package_name,
@@ -13,12 +13,14 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         (os.path.join('share', package_name), ['package.xml']),
-        # ✅ config/*.yaml 포함 (실시간 glob, 경로 정확히 탐색)
+        
+        # ✅ config/*.yaml 포함 (pystarter/config 내부)
         (os.path.join('share', package_name, 'config'),
-            glob(os.path.join(here, 'config', '*.yaml'))),
-        # ✅ reference/*.jpg 포함 (실시간 glob, 경로 정확히 탐색)
+            glob(os.path.join(here, 'pystarter', 'config', '*.yaml'))),
+
+        # ✅ logs/images/reference/*.jpg 포함
         (os.path.join('share', package_name, 'logs/images/reference'),
-            glob(os.path.join(here, 'logs/images/reference', '*.jpg'))),
+            glob(os.path.join(here, 'pystarter', 'logs', 'images', 'reference', '*.jpg'))),
     ],
     install_requires=[
         'setuptools',
