@@ -9,14 +9,16 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'py_trees',  # 추가된 필수 의존성
+    ],
     zip_safe=True,
     maintainer='hayeon',
     maintainer_email='shinhy9@naver.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Python package to integrate py_trees with ROS 2 navigation for robot control',
+    license='MIT',  # 실제 사용되는 라이센스로 수정
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
