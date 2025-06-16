@@ -7,6 +7,7 @@ from rclpy.action import ActionClient
 import yaml
 import os
 from ament_index_python.packages import get_package_share_directory
+import tf_transformations  # 외부에 위치시키면 속도 조금 더 빠름
 
 class MoveToGoal(py_trees.behaviour.Behaviour):
     def __init__(self, index=0):
@@ -20,12 +21,15 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
     def initialise(self):
         self.goal_sent = False
         self.result_future = None
+        print(f"[MoveToGoal {self.index}] ▶ 서버 연결 대기 중...")
 
     def update(self):
         if not self.goal_sent:
-            if not self.action_client.wait_for_server(timeout_sec=3.0):
-                self.node.get_logger().warn("NavigateToPose action server not available!")
+            if not self.action_client.wait_for_server(timeout_sec=10.0):
+                print(f"[MoveToGoal {self.index}] ❌ 액션 서버 연결 실패!")
                 return py_trees.common.Status.FAILURE
+
+            print(f"[MoveToGoal {self.index}] ✅ 액션 서버 연결 완료!")
 
             goal_msg = NavigateToPose.Goal()
             goal_msg.pose = self.load_pose_from_yaml(self.index)
@@ -36,6 +40,7 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
 
         if self.result_future.done():
             result = self.result_future.result()
+            print(f"[MoveToGoal {self.index}] 🎯 도착 완료! status: {result.status}")
             if result.status == 4:  # ABORTED
                 return py_trees.common.Status.FAILURE
             return py_trees.common.Status.SUCCESS
@@ -45,7 +50,7 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
     def load_pose_from_yaml(self, index):
         filename = f"waypoint{index + 1}.yaml"
         config_path = os.path.join(
-            get_package_share_directory("pystarter"),  # 너의 패키지 이름에 맞게 바꿔야 함
+            get_package_share_directory("pystarter"),
             "config",
             filename
         )
@@ -59,9 +64,8 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
         pose.pose.position.y = float(data['pose']['y'])
         pose.pose.position.z = 0.0
 
-        import math
-        import tf_transformations
-        q = tf_transformations.quaternion_from_euler(0, 0, float(data['pose']['theta']))
+        theta = float(data['pose']['theta'])
+        q = tf_transformations.quaternion_from_euler(0, 0, theta)
         pose.pose.orientation.x = q[0]
         pose.pose.orientation.y = q[1]
         pose.pose.orientation.z = q[2]
