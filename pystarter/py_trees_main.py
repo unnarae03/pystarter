@@ -1,16 +1,28 @@
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 import py_trees
+import os
+from ament_index_python.packages import get_package_share_directory
 
 from pystarter.nodes.move_to_goal_node import MoveToGoal
-#from pystarter.nodes.set_angle_node import SetAngleNode
+# from pystarter.nodes.set_angle_node import SetAngleNode  # 유지
 
 
-def create_tree():
+def waypoint_exists(index):
+    filename = f"waypoint{index + 1}.yaml"
+    config_path = os.path.join(
+        get_package_share_directory("pystarter"),
+        "config",
+        filename
+    )
+    return os.path.exists(config_path)
+
+
+def create_tree(index):
     root = py_trees.composites.Sequence(name="MainSequence", memory=False)
 
-    move_to_goal = MoveToGoal()
-    #set_angle = SetAngleNode(index=0)# waypoint1.yaml 기준
+    move_to_goal = MoveToGoal(index=index)
+    # set_angle = SetAngleNode(index=index)  # 주석 유지
 
     root.add_children([move_to_goal])
     return root, move_to_goal
@@ -18,27 +30,43 @@ def create_tree():
 
 def main():
     rclpy.init()
-
-    # ROS 2 노드 실행기 (멀티 스레드)
     executor = MultiThreadedExecutor()
 
-    tree, move_to_goal_node = create_tree()
-    behaviour_tree = py_trees.trees.BehaviourTree(tree)
-    behaviour_tree.setup(timeout=15)
+    index = 0
+    while rclpy.ok():
+        if not waypoint_exists(index):
+            print("✅ 모든 웨이포인트 완료. 종료합니다.")
+            break
 
-    try:
-        while rclpy.ok():
+        tree, move_to_goal_node = create_tree(index)
+        behaviour_tree = py_trees.trees.BehaviourTree(tree)
+        behaviour_tree.setup(timeout=15)
+
+        status = py_trees.common.Status.RUNNING
+        last_status = None
+
+        while status == py_trees.common.Status.RUNNING and rclpy.ok():
             behaviour_tree.tick()
             rclpy.spin_once(move_to_goal_node.node, timeout_sec=0.1)
-            #rclpy.spin_once(set_angle_node.node, timeout_sec=0.1)
+            status = move_to_goal_node.status
 
-    except KeyboardInterrupt:
-        pass
+            # 상태가 바뀌는 순간에만 반응
+            if status != last_status:
+                last_status = status
+                if status == py_trees.common.Status.FAILURE:
+                    print(f"❌ waypoint{index+1} 실패. 중단합니다.")
+                elif status == py_trees.common.Status.SUCCESS:
+                    print(f"✅ waypoint{index+1} 성공.")
 
-    behaviour_tree.shutdown()
-    move_to_goal_node.node.destroy_node()
-    #set_angle_node.node.destroy_node()
-    rclpy.shutdown()
+        behaviour_tree.shutdown()
+        move_to_goal_node.node.destroy_node()
+        rclpy.shutdown()  # 노드 하나씩 생성했으니 초기화도 매번 해줘야 깔끔함
+        rclpy.init()
+
+        if status == py_trees.common.Status.SUCCESS:
+            index += 1
+        else:
+            break
 
 
 if __name__ == "__main__":
