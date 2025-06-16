@@ -8,6 +8,8 @@ from ament_index_python.packages import get_package_share_directory
 import os
 import yaml
 import tf_transformations
+import tf2_ros
+import time
 
 
 class MoveToGoal(py_trees.behaviour.Behaviour):
@@ -19,6 +21,10 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
         self._sent_goal = False
         self._goal_done = False
         self._goal_result = None
+
+        # ✅ TF listener 설정
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self.node)
 
         # ✅ 중복 로그 방지용
         self.available = False
@@ -40,10 +46,28 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
         if not self.available:
             return
 
+        # ✅ TF 연결 대기 (최대 60초)
+        wait_time = 0.0
+        max_wait = 60.0
+        print("⏳ map → base_link 연결 대기 중...")
+
+        while wait_time < max_wait:
+            if self.tf_buffer.can_transform("map", "base_link", rclpy.time.Time()):
+                print(f"✅ map → base_link 연결 성공 (대기 시간: {wait_time:.1f}초)")
+                break
+            time.sleep(0.1)
+            wait_time += 0.1
+
+        if wait_time >= max_wait:
+            print("❌ map → base_link 변환이 60초 내에 안 잡혔습니다. 실행 중단")
+            self._goal_result = py_trees.common.Status.FAILURE
+            self._goal_done = True
+            return
+
         if hasattr(self, "goal_pose"):
             return  # 이미 세팅된 경우 다시 안 함
 
-        # YAML 로드
+        # ✅ YAML 로드
         filename = f"waypoint{self.index + 1}.yaml"
         config_path = os.path.join(
             get_package_share_directory("pystarter"),
