@@ -38,8 +38,8 @@ def main():
             print("✅ 모든 웨이포인트 완료. 종료합니다.")
             break
 
-        tree, move_to_goal_node = create_tree(index)
-        behaviour_tree = py_trees.trees.BehaviourTree(tree)
+        tree_root, move_to_goal_node = create_tree(index)
+        behaviour_tree = py_trees.trees.BehaviourTree(tree_root)
         behaviour_tree.setup(timeout=15)
 
         status = py_trees.common.Status.RUNNING
@@ -48,9 +48,8 @@ def main():
         while status == py_trees.common.Status.RUNNING and rclpy.ok():
             behaviour_tree.tick()
             rclpy.spin_once(move_to_goal_node.node, timeout_sec=0.1)
-            status = tree.root.status  # ✅ 핵심 수정: 트리 전체 상태로 판단
+            status = behaviour_tree.root.status  # ✅ 올바른 위치에서 상태 체크
 
-            # 상태가 바뀌는 순간에만 반응
             if status != last_status:
                 last_status = status
                 if status == py_trees.common.Status.FAILURE:
@@ -60,7 +59,7 @@ def main():
 
         behaviour_tree.shutdown()
         move_to_goal_node.node.destroy_node()
-        rclpy.shutdown()  # 노드 하나씩 생성했으니 초기화도 매번 해줘야 깔끔함
+        rclpy.shutdown()
         rclpy.init()
 
         if status == py_trees.common.Status.SUCCESS:
