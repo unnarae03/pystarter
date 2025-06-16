@@ -4,15 +4,16 @@ import py_trees
 import os
 
 from pystarter.nodes.move_to_goal_node import MoveToGoal
+from ament_index_python.packages import get_package_share_directory
 
 def waypoint_exists(index):
-    from ament_index_python.packages import get_package_share_directory
     config_path = os.path.join(
         get_package_share_directory("pystarter"),
         "config",
         f"waypoint{index}.yaml"
     )
     return os.path.exists(config_path)
+
 
 class MoveToGoalBT(py_trees.behaviour.Behaviour):
     def __init__(self, index):
@@ -47,10 +48,11 @@ class MoveToGoalBT(py_trees.behaviour.Behaviour):
 
 
 def create_tree(index):
-    root = py_trees.composites.Sequence(name=f"TreeForWaypoint{index}")
+    # ✅ memory=False 추가 (중요!)
+    root = py_trees.composites.Sequence(name=f"TreeForWaypoint{index}", memory=False)
     move = MoveToGoalBT(index)
     root.add_child(move)
-    return root, move.node  # node는 rclpy.spin() 위해 따로 넘김
+    return root, move.node  # ROS node는 spin 위해 넘김
 
 
 def main():
