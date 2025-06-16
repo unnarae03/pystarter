@@ -48,7 +48,7 @@ def main():
         while status == py_trees.common.Status.RUNNING and rclpy.ok():
             behaviour_tree.tick()
             rclpy.spin_once(move_to_goal_node.node, timeout_sec=0.1)
-            status = move_to_goal_node.status
+            status = tree.root.status  # ✅ 핵심 수정: 트리 전체 상태로 판단
 
             # 상태가 바뀌는 순간에만 반응
             if status != last_status:
