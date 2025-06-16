@@ -20,12 +20,12 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
         self._goal_done = False
         self._goal_result = None
 
-        # ✅ 상태 추적용 플래그들
+        # ✅ 중복 로그 방지용
         self.available = False
         self._printed_goal_log = False
         self._printed_fail_log = False
 
-        # ✅ 액션 서버 연결 시도 (딱 한 번만)
+        # ✅ 액션 서버 연결 (딱 한 번)
         if self.client.wait_for_server(timeout_sec=5.0):
             self.available = True
         else:
@@ -35,16 +35,15 @@ class MoveToGoal(py_trees.behaviour.Behaviour):
         self._sent_goal = False
         self._goal_done = False
         self._goal_result = None
-        self._printed_fail_log = False  # 다음 waypoint 시작 시 초기화
+        self._printed_fail_log = False  # 웨이포인트마다 리셋
 
         if not self.available:
             return
 
-        # 이미 goal_pose 설정된 경우 다시 설정 안 함
         if hasattr(self, "goal_pose"):
-            return
+            return  # 이미 세팅된 경우 다시 안 함
 
-        # ✅ waypoint YAML 로드
+        # YAML 로드
         filename = f"waypoint{self.index + 1}.yaml"
         config_path = os.path.join(
             get_package_share_directory("pystarter"),
