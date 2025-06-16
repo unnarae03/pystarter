@@ -1,41 +1,43 @@
 import rclpy
+from rclpy.executors import MultiThreadedExecutor
 import py_trees
+import os
+from ament_index_python.packages import get_package_share_directory
 from pystarter.nodes.move_to_goal_node import MoveToGoal
+
+def waypoint_exists(index):
+    filename = f"waypoint{index + 1}.yaml"
+    config_path = os.path.join(
+        get_package_share_directory("pystarter"),
+        "config",
+        filename
+    )
+    return os.path.exists(config_path)
 
 def main():
     rclpy.init()
+    executor = MultiThreadedExecutor()
 
-    index = 1
-    while True:
-        # waypoint 파일 존재 여부 확인
-        from ament_index_python.packages import get_package_share_directory
-        import os
-        path = os.path.join(
-            get_package_share_directory("pystarter"),
-            "config",
-            f"waypoint{index}.yaml"
-        )
-        if not os.path.exists(path):
-            print(f"✅ 모든 waypoint 완료 (index={index-1})")
-            break
+    index = 0
+    while waypoint_exists(index):
+        print(f"[INFO] Executing waypoint{index + 1}...")
 
-        # PerWaypoint 트리 구성
+        # ✅ memory 인자 명시해야 함
+        root = py_trees.composites.Sequence(name=f"TreeForWaypoint{index+1}", memory=False)
         move_to_goal = MoveToGoal(index=index)
-        seq = py_trees.composites.Sequence(name=f"PerWaypoint{index}")
-        seq.add_child(move_to_goal)
+        root.add_child(move_to_goal)
 
-        # 트리 실행
-        bt = py_trees.trees.BehaviourTree(seq)
-        bt.setup(timeout=15)
+        tree = py_trees.trees.BehaviourTree(root)
+        tree.setup(timeout=15)
 
-        # ROS2 spin
-        try:
-            while rclpy.ok() and bt.root.status != py_trees.common.Status.SUCCESS:
-                bt.tick()
-                rclpy.spin_once(move_to_goal.node, timeout_sec=0.1)
-        except KeyboardInterrupt:
-            break
+        while rclpy.ok():
+            tree.tick()
+            rclpy.spin_once(move_to_goal.node, timeout_sec=0.1)
+
+            if tree.root.status != py_trees.common.Status.RUNNING:
+                break
 
         index += 1
 
+    print("[DONE] All waypoints complete.")
     rclpy.shutdown()
