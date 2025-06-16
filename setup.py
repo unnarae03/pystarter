@@ -36,7 +36,8 @@ setup(
         'console_scripts': [
             'bt_main = pystarter.bt_main:main',
             'move_to_goal = pystarter.move_to_goal_node:main',
-            'set_angle_node = pystarter.nodes.set_angle_node:main',
+            #'set_angle_node = pystarter.nodes.set_angle_node:main',
+            'py_trees_main = pystarter.py_trees_main:main',
         ],
     },
 )
