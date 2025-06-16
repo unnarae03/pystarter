@@ -5,7 +5,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from pystarter.nodes.move_to_goal_node import MoveToGoal
-# from pystarter.nodes.set_angle_node import SetAngleNode  # 유지
+# from pystarter.nodes.set_angle_node import SetAngleNode  # 다른 노드들 생기면 추가
 
 
 def waypoint_exists(index):
@@ -19,12 +19,15 @@ def waypoint_exists(index):
 
 
 def create_tree(index):
-    root = py_trees.composites.Sequence(name="MainSequence", memory=False)
+    root = py_trees.composites.Sequence(name=f"MainSequence_{index+1}", memory=False)
 
     move_to_goal = MoveToGoal(index=index)
-    # set_angle = SetAngleNode(index=index)  # 주석 유지
+    # set_angle = SetAngleNode(index=index)
 
-    root.add_children([move_to_goal])
+    root.add_children([
+        move_to_goal,
+        # set_angle,
+    ])
     return root, move_to_goal
 
 
@@ -38,6 +41,7 @@ def main():
             print("✅ 모든 웨이포인트 완료. 종료합니다.")
             break
 
+        # 트리 생성
         tree_root, move_to_goal_node = create_tree(index)
         behaviour_tree = py_trees.trees.BehaviourTree(tree_root)
         behaviour_tree.setup(timeout=15)
@@ -45,10 +49,11 @@ def main():
         status = py_trees.common.Status.RUNNING
         last_status = None
 
+        # 트리 실행
         while status == py_trees.common.Status.RUNNING and rclpy.ok():
             behaviour_tree.tick()
             rclpy.spin_once(move_to_goal_node.node, timeout_sec=0.1)
-            status = behaviour_tree.root.status  # ✅ 올바른 위치에서 상태 체크
+            status = behaviour_tree.root.status
 
             if status != last_status:
                 last_status = status
@@ -57,15 +62,16 @@ def main():
                 elif status == py_trees.common.Status.SUCCESS:
                     print(f"✅ waypoint{index+1} 성공.")
 
+        # 트리 종료 및 노드 정리
         behaviour_tree.shutdown()
         move_to_goal_node.node.destroy_node()
-        rclpy.shutdown()
-        rclpy.init()
 
         if status == py_trees.common.Status.SUCCESS:
             index += 1
         else:
             break
+
+    rclpy.shutdown()
 
 
 if __name__ == "__main__":
