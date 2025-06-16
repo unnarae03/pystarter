@@ -2,77 +2,84 @@ import rclpy
 from rclpy.executors import MultiThreadedExecutor
 import py_trees
 import os
-from ament_index_python.packages import get_package_share_directory
 
 from pystarter.nodes.move_to_goal_node import MoveToGoal
-# from pystarter.nodes.set_angle_node import SetAngleNode  # 다른 노드들 생기면 추가
-
 
 def waypoint_exists(index):
-    filename = f"waypoint{index + 1}.yaml"
+    from ament_index_python.packages import get_package_share_directory
     config_path = os.path.join(
         get_package_share_directory("pystarter"),
         "config",
-        filename
+        f"waypoint{index}.yaml"
     )
     return os.path.exists(config_path)
 
+class MoveToGoalBT(py_trees.behaviour.Behaviour):
+    def __init__(self, index):
+        super().__init__(name=f"MoveToGoal_{index}")
+        self.index = index
+        self.node = MoveToGoal()
+
+    def update(self):
+        pose = self.node.load_waypoint(self.index)
+        if pose is None:
+            self.logger.warning(f"[BT] waypoint{self.index}.yaml 없음")
+            return py_trees.common.Status.FAILURE
+
+        future = self.node.send_goal(pose)
+        rclpy.spin_until_future_complete(self.node, future)
+        goal_handle = future.result()
+
+        if not goal_handle.accepted:
+            self.logger.error(f"[BT] Goal {self.index} rejected")
+            return py_trees.common.Status.FAILURE
+
+        result_future = goal_handle.get_result_async()
+        rclpy.spin_until_future_complete(self.node, result_future)
+        result = result_future.result()
+
+        if result.status != 4:
+            self.logger.info(f"[BT] Goal {self.index} 성공")
+            return py_trees.common.Status.SUCCESS
+        else:
+            self.logger.warning(f"[BT] Goal {self.index} 실패")
+            return py_trees.common.Status.FAILURE
+
 
 def create_tree(index):
-    root = py_trees.composites.Sequence(name=f"MainSequence_{index+1}", memory=False)
-
-    move_to_goal = MoveToGoal(index=index)
-    # set_angle = SetAngleNode(index=index)
-
-    root.add_children([
-        move_to_goal,
-        # set_angle,
-    ])
-    return root, move_to_goal
+    root = py_trees.composites.Sequence(name=f"TreeForWaypoint{index}")
+    move = MoveToGoalBT(index)
+    root.add_child(move)
+    return root, move.node  # node는 rclpy.spin() 위해 따로 넘김
 
 
 def main():
     rclpy.init()
     executor = MultiThreadedExecutor()
+    index = 1
 
-    index = 0
-    while rclpy.ok():
-        if not waypoint_exists(index):
-            print("✅ 모든 웨이포인트 완료. 종료합니다.")
-            break
+    try:
+        while rclpy.ok() and waypoint_exists(index):
+            root, ros_node = create_tree(index)
+            behaviour_tree = py_trees.trees.BehaviourTree(root)
+            behaviour_tree.setup(timeout=15)
 
-        # 트리 생성
-        tree_root, move_to_goal_node = create_tree(index)
-        behaviour_tree = py_trees.trees.BehaviourTree(tree_root)
-        behaviour_tree.setup(timeout=15)
+            while rclpy.ok():
+                status = behaviour_tree.tick()
+                rclpy.spin_once(ros_node, timeout_sec=0.1)
+                if status != py_trees.common.Status.RUNNING:
+                    break
 
-        status = py_trees.common.Status.RUNNING
-        last_status = None
-
-        # 트리 실행
-        while status == py_trees.common.Status.RUNNING and rclpy.ok():
-            behaviour_tree.tick()
-            rclpy.spin_once(move_to_goal_node.node, timeout_sec=0.1)
-            status = behaviour_tree.root.status
-
-            if status != last_status:
-                last_status = status
-                if status == py_trees.common.Status.FAILURE:
-                    print(f"❌ waypoint{index+1} 실패. 중단합니다.")
-                elif status == py_trees.common.Status.SUCCESS:
-                    print(f"✅ waypoint{index+1} 성공.")
-
-        # 트리 종료 및 노드 정리
-        behaviour_tree.shutdown()
-        move_to_goal_node.node.destroy_node()
-
-        if status == py_trees.common.Status.SUCCESS:
             index += 1
-        else:
-            break
 
-    rclpy.shutdown()
+        print("✅ 모든 waypoint 완료")
+
+    except KeyboardInterrupt:
+        print("🛑 사용자 종료")
+
+    finally:
+        rclpy.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
