@@ -13,8 +13,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         (os.path.join('share', package_name), ['package.xml']),
-        
-        # ✅ config/*.yaml 포함 (pystarter/config 내부) 여기도 추가 나래
+
+        # ✅ config/*.yaml 포함
         (os.path.join('share', package_name, 'config'),
             glob(os.path.join(here, 'pystarter', 'config', '*.yaml'))),
 
@@ -25,6 +25,10 @@ setup(
         # ✅ reference 이미지 포함
         (os.path.join('share', package_name, 'logs/images/reference'),
             glob(os.path.join(here, 'pystarter', 'logs', 'images', 'reference', '*.jpg'))),
+
+        # ✅ current 이미지 저장 경로 포함
+        (os.path.join('share', package_name, 'logs/images/current'),
+            glob(os.path.join(here, 'pystarter', 'logs', 'images', 'current', '*'))),
     ],
     install_requires=[
         'setuptools',
@@ -37,11 +41,12 @@ setup(
     license='MIT',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [
-            'bt_main = pystarter.bt_main:main',
-            'move_to_goal = pystarter.nodes.move_to_goal_node:main',
-            'return_to_base = pystarter.nodes.return_to_base_node:main',
-            'py_trees_main = pystarter.py_trees_main:main',
-        ],
-    },
+    'console_scripts': [
+        'bt_main = pystarter.bt_main:main',
+        'move_to_goal = pystarter.nodes.move_to_goal_node:main',
+        'return_to_base = pystarter.nodes.return_to_base_node:main',
+        'capture_image = pystarter.nodes.capture_image_node:main',
+        'py_trees_main = pystarter.py_trees_main:main',
+    ],
+   },
 )

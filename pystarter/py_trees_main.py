@@ -6,8 +6,9 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 
 from pystarter.nodes.move_to_goal_node import MoveToGoal
+from pystarter.nodes.capture_image_node import CaptureImage
 from pystarter.nodes.return_to_base_node import return_to_base
-from pystarter.nodes.capture_image_node import CaptureImage #add
+from py_trees.behaviours import Success  # 실패 시 우회처리용
 
 def waypoint_exists(index):
     filename = f"waypoint{index + 1}.yaml"
@@ -36,13 +37,22 @@ def main():
     while waypoint_exists(index):
         print(f"[INFO] Executing waypoint{index + 1}...")
 
-        root = py_trees.composites.Sequence(name=f"TreeForWaypoint{index+1}", memory=False)
-
         move_to_goal = MoveToGoal(index=index)
-        capture_image = CaptureImage(label=index + 1) #add
+        capture_image = CaptureImage(label=index + 1)
 
-        root.add_child(move_to_goal)
-        root.add_child(capture_image)  #add
+        # 실패해도 통과하게 구성
+        move_to_goal_selector = py_trees.composites.Selector(
+            name=f"RetryOrBypass_{index+1}", memory=False
+        )
+        move_to_goal_selector.add_child(move_to_goal)
+        move_to_goal_selector.add_child(Success(name=f"BypassGoal_{index+1}"))
+
+        # 트리 구성: MoveToGoal -> CaptureImage
+        root = py_trees.composites.Sequence(
+            name=f"TreeForWaypoint{index+1}", memory=False
+        )
+        root.add_child(move_to_goal_selector)
+        root.add_child(capture_image)
 
         tree = py_trees.trees.BehaviourTree(root)
         tree.setup(timeout=15)
@@ -50,7 +60,7 @@ def main():
         while rclpy.ok():
             tree.tick()
             rclpy.spin_once(move_to_goal.node, timeout_sec=0.1)
-            rclpy.spin_once(capture_image.node, timeout_sec=0.1) #add
+            rclpy.spin_once(capture_image.node, timeout_sec=0.1)
 
             if tree.root.status != py_trees.common.Status.RUNNING:
                 break
